@@ -1,0 +1,290 @@
+- Level 1
+- The password for the next level is stored in a file called - located in the home directory
+    
+    ->  This type of approach has a lot of misunderstanding because using - as an argument refers to STDIN/STDOUT i.e dev/stdin or dev/stdout .So if you want to open this type of file you have to specify the full location of the file such as ./- 
+    ->  the solution is: to cat file - use cat ./-
+
+  -------------------------------------------------------------------------------------------------------------------
+
+- Level 2
+- The password for the next level is stored in a file called --spaces in this filename-- located in the home directory
+    
+    -> Because the filename starts with two dashes (`--`), and most Linux commands (including `cat`) interpret anything starting with `--` as an option flag, not as a filename.
+    
+    So when you run: cat --spaces in this filename--
+  
+    cat thinks you’re passing it an option called `--spaces`, which doesn’t exist — hence the error: ->> cat: unrecognized option '--spaces in this filename--' 
+    
+    
+### How to fix it ###
+    
+    There are a few correct ways to tell `cat` that this is a filename, not an option:
+    
+    ### Option 1: Use `-` to end options
+    
+        -> cat -- --spaces\ in\ this\ filename--
+    
+    Here’s what’s happening:
+    
+    - The first - tells cat: “stop parsing options — everything after this is a filename.”
+    - The backslashes (\) escape the spaces.
+    
+    ### Option 2: Quote the filename
+    
+        -> cat "./--spaces in this filename--"
+    
+    Quoting the name prevents the shell from splitting it on spaces, and the `./` ensures it’s treated as a file in the current directory, not an option.
+    
+    -----------------------------------------------------------------------------------------------------------------
+
+
+- Level 3
+- The password for the next level is stored in a hidden file in the inhere directory.
+    
+    -> We use cd to change directories to inhere directory and afterwards we use the ls -la tag to display hidden files.
+
+-----------------------------------------------------------------------------------------------------------------------
+
+- Level 4
+- The password for the next level is stored in the only human-readable file in the inhere directory. Tip: if your terminal is messed up, try the “reset” command.
+        
+         -> we change the dir (cd inhere), then use file to search for all files in the directory -> file ./* → this will display several files, the ones containing binaries will display: data, the human readable one will say: ASCII text 
+        
+        bandit4@bandit:~/inhere$ file ./*
+        ./-file00: data
+        ./-file01: data
+        ./-file02: data
+        ./-file03: data
+        ./-file04: data
+        ./-file05: data
+        ./-file06: data
+        ./-file07: ASCII text
+        ./-file08: data
+        ./-file09: data
+        bandit4@bandit:~/inhere$ cat ./-file07
+        4oQYVPkxZOOEOO5pTW81FB8j8lxXGUQw
+
+----------------------------------------------------------------------------------------------------------------------
+
+
+- Level 5  
+- The password for the next level is stored in a file somewhere under the inhere directory and has all of the following properties:
+    
+    - human-readable
+    - 1033 bytes in size
+    - not executable
+    
+     -> THE SOLUTION: 
+    
+    find inhere -type f -size 1033c ! -executable -print0 | xargs -0 file | awk -F: '/text/{print $1; exit}' | xargs -I{} cat "{}"
+    
+Explanation:
+    
+    find inhere -type f -size 1033c ! -executable -print0 → finds all regular files in inhere that are exactly 1033 bytes and not executable.
+    
+    xargs -0 file → checks what type each file is.
+    
+    awk -F: '/text/{print $1; exit}' → picks the first one that’s human-readable text.
+    
+    xargs -I{} cat "{}" → prints the contents (the password).
+
+
+---------------------------------------------------------------------------------------------------------------------------
+
+
+- Level 6
+- The password for the next level is stored somewhere on the server and has all of the following properties:
+
+        - owned by user bandit7
+        - owned by group bandit6
+        - 33 bytes in size
+        
+-> find / -type f -user bandit7 -group bandit6 -size 33c -print0 -quit 2>/dev/null | xargs -0 cat
+
+    -print0 - Tells find to print matching filenames terminated by a NUL (\0) byte instead of a newline.
+        Why? Filenames can contain spaces, tabs, or even newlines — so using NUL as a separator is the only safe, unambiguous choice.
+        Example output (conceptual):
+        /path/to/file1\0/another weird name\0
+    
+    -quit - Stop searching after the first match and exit immediately. This is handy because:
+    
+        It makes the search faster (no more walking the whole tree after you found the file).
+        Combined with -print0, it means find will output exactly one NUL-terminated filename and then exit.
+    
+    -2>/dev/null
+        Redirects file descriptor 2 (stderr) to /dev/null.
+        This hides error messages (like Permission denied) so the output stream only contains the filenames from find. Without this, xargs could receive noise on stderr in your terminal; it won’t get mixed into the pipe, but the screen gets messy.
+    
+    -| xargs -0 cat
+        This takes the NUL-separated filename(s) from find and runs cat on them.
+        xargs reads from stdin and builds commands.
+    
+    -0 tells xargs to expect NUL-separated input (so it pairs perfectly with -print0).
+        cat is the command xargs will run. If there’s one filename, xargs will effectively run cat "/the/found/file".
+    
+    
+Why use xargs -0 cat instead of -exec cat {} \;?
+    
+    Both are safe when used correctly. -exec is simpler and doesn’t require xargs:
+    find / ... -size 33c -exec cat {} \; 2>/dev/null
+    
+    But -exec without + runs cat once per file (fine here since -quit makes it one file). xargs is common when you might want to batch multiple arguments into one command or need NUL separation for weird names.
+    xargs -0 + -print0 is the classic portable pairing for safely handling any filename.
+    
+    
+### End result ###
+    
+    - find finds the first file that matches the criteria and prints its full pathname followed by a NUL.
+    - stderr is silenced so you don’t get permission errors cluttering your output.
+    - xargs -0 reads that single NUL-delimited pathname and runs `cat` on it, which prints the file contents (the password) to stdout.
+        
+        The one-liner:
+        
+        find / -type f -user bandit7 -group bandit6 -size 33c -print0 -quit 2>/dev/null | xargs -0 cat
+
+        
+        If you want to see the filename as well, run:
+
+        find / -type f -user bandit7 -group bandit6 -size 33c -print -quit 2>/dev/null | xargs -r ls -l
+
+
+--------------------------------------------------------------------------------------------------------------
+
+
+- Level 7
+- The password for the next level is stored in the file data.txt next to the word millionth.
+        
+        Easiest and most reliable solution:
+        
+       ->  grep "millionth" data.txt
+        
+        That will print the entire line containing the word millionth.
+        The word right next to “millionth” in that line is the password for the next level.
+        
+          Example output:
+        
+            millionth    abcdefghijklmnopqrstuvwxyz
+        
+        -> The password is `abcdefghijklmnopqrstuvwxyz`.
+
+
+    ### If you want to extract it automatically:
+        
+        You can pipe it through awk:
+        
+        -> grep "millionth" data.txt | awk '{print $2}'
+      
+    
+        Explanation:
+        
+        - grep "millionth" data.txt → finds the line.
+        - awk '{print $2}' -> prints the second “word” on that line (the one after millionth).
+
+
+--------------------------------------------------------------------------------------------------------
+
+
+- Level 8
+- The password for the next level is stored in the file data.txt and is the only line of text that occurs only once.
+        
+        Here’s the clean one-liner that works in the Bandit shell:
+        
+          -> sort data.txt | uniq -u
+        
+  ### 🔍 Explanation ###
+        
+        - sort data.txt -> sorts the lines (required, because uniq only works on adjacent duplicates).
+        - uniq -u -> prints only the lines that appear exactly once.
+        
+        The output will be the **password** for the next level.
+        
+ ### What `uniq` actually does ###
+        
+        The uniq command reads a sorted (or grouped) list of lines from input and removes duplicates that are next to each other — i.e., adjacent duplicates.
+        It doesn’t search the entire file for duplicates — it just compares **each line to the one immediately before it**.
+        
+        
+  ### ⚠️ Why sorting first is needed
+        
+        If identical lines are not next to each other, uniq won’t recognize them as duplicates.
+        
+        Example:
+        
+        # file: example.txt
+        apple
+        banana
+        apple
+        orange
+        banana
+      
+        
+        Now run:
+        uniq example.txt
+        
+        Output:
+        
+        apple
+        banana
+        apple
+        orange
+        banana
+        
+        ->> Nothing changes!
+        
+        Because the two apple lines are not adjacent — there’s a banana in between — uniq treats them as separate.
+
+
+----------------------------------------------------------------------------------------------------------------------
+
+
+- Level 9
+- The password for the next level is stored in the file **data.txt** in one of the few human-readable strings, preceded by several ‘=’ characters.
+        
+  ### ✅ The quick and clean solution:
+        
+        strings data.txt | grep ===
+          
+  ### 🔍 Explanation
+        
+        Let’s break it down:
+        
+      1. strings data.txt
+        
+        - strings extracts human-readable text from a binary or mixed file.
+        - It filters out gibberish and only prints printable ASCII sequences (by default ≥4 characters long).
+        
+        So this command gives you only the readable words hidden inside the binary `data.txt`.
+        
+      2. | grep ===
+        
+        - Pipes (|) that readable output into grep.
+        - grep === searches for any line containing ===, because the password is said to be preceded by several `=` characters.
+
+--------------------------------------------------------------------------------------------------------------------------------------
+
+
+- Level 10
+- The password for the next level is stored in the file data.txt, which contains base64 encoded data.
+        
+        Nice — if data.txt is base64-encoded, you just need to decode it. Here are a few reliable ways (pick one that works in your Bandit shell):
+        
+    ### Recommended (simple)
+
+        base64 --decode data.txt
+        
+     or, if your base64 uses -d:
+      
+        base64 -d data.txt
+           
+    ### If `base64` isn't available, use `openssl`
+        
+        openssl base64 -d -in data.txt
+        
+### If output looks binary / garbled, extract printable text (safe)
+      
+        base64 -d data.txt 2>/dev/null | strings
+        
+        strings will show the human-readable pieces — useful if the decoded data contains non-text bytes.
+
+
+----------------------------------------------------------------------------------------------------------------------------------------
